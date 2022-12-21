@@ -1,0 +1,14 @@
+#!/bin/bash
+set -e
+
+SINGLE_QUOTED_PASSWORD=\'$POSTGRES_GRAFANA_PASSWORD\'
+
+if [ ! -z "$POSTGRES_GRAFANA_PASSWORD" ]; then
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+    CREATE USER grafana WITH encrypted PASSWORD $SINGLE_QUOTED_PASSWORD;
+    CREATE DATABASE grafana ENCODING 'UTF8';
+    GRANT ALL PRIVILEGES ON DATABASE grafana TO grafana;
+    \c grafana grafana;
+    CREATE SCHEMA IF NOT EXISTS AUTHORIZATION grafana;
+EOSQL
+fi

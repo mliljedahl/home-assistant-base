@@ -1,0 +1,123 @@
+version: '3'
+services:
+  # Home Assistant is a free and open-source software for home automation designed to be a central control
+  # system for smart home devices with a focus on local control and privacy.
+  home-assistant:
+    container_name: home-assistant
+    image: "homeassistant/home-assistant:${TAG_HOME_ASSISTANT:-stable}"
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - influxdb
+      - telldus-core-alpine
+      - zwavejs
+    devices:
+      - ${ZIGBEE_SERIAL_ID:?error}:/dev/ttyACM0
+    volumes:
+      - ./configs/home-assistant:/config
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - TZ=Europe/Stockholm
+    ports:
+      - "5353:5353" # Multicast DNS port used for auto discovery exposed on host network (optional)
+      - "${HOME_ASSISTANT_PORT:-8123}:8123" # Home Assistant public HTTP port exposed on host network
+
+  # The `recorder` integration is responsible for storing details in a database, which then are handled by the `history` integration.
+  postgres:
+    container_name: postgres
+    image: "postgres:${TAG_POSTGRES:-alpine}"
+    restart: unless-stopped
+    env_file:
+      - ./bin/postgres.env
+    volumes:
+      - ./bin/postgres/init-database.sh:/docker-entrypoint-initdb.d/init-database.sh:ro
+      - /etc/localtime:/etc/localtime:ro
+      - postgres_data:/var/lib/postgresql/data
+    expose:
+      - "5432" # exposed internally
+
+  # Provides a telldusd interface to be used to communicate with your TellStick from Home Assistant.
+  telldus-core-alpine:
+    container_name: telldus-core-alpine
+    image: "mliljedahl/telldus-core-alpine:${TAG_TELLDUS_CORE_ALPINE:-latest}"
+    restart: unless-stopped
+    devices:
+      - /dev/bus/usb:/dev/bus/usb:rwm
+    volumes:
+      - ./configs/telldus/tellstick.conf:/etc/tellstick.conf:ro
+    expose:
+      - "50800" # exposed internally
+      - "50801" # exposed internally
+
+  # This integration allows you to control a Z-Wave network via the Z-Wave JS driver. This is our recommended Z-Wave integration for Home Assistant.
+  zwavejs:
+    container_name: zwavejs
+    image: "zwavejs/zwave-js-ui:${TAG_ZWAVEJS:-latest}"
+    restart: always
+    depends_on:
+      - mosquitto
+    tty: true
+    stop_signal: SIGINT
+    env_file:
+      - ./bin/zwavejs.env
+    devices:
+      - ${ZWAVE_SERIAL_ID:?error}:/dev/zwave
+    volumes:
+      - zwavejs_data:/usr/src/app/store
+    ports:
+      - "${ZWAVEJS_PORT:-8091}:8091" # Z-Wave JS UI public HTTP port exposed on host network
+    expose:
+      - "3000" # websocket exposed internally
+
+  # Eclipse Mosquitto is an open source (EPL/EDL licensed) message broker that implements the MQTT protocol. Ready to use
+  # with the Z-Wave-JS UI integration.
+  mosquitto:
+    image: "eclipse-mosquitto:${TAG_MOSQUITTO:-latest}"
+    container_name: mosquitto
+    restart: unless-stopped
+    volumes:
+      - mosquitto_data:/mosquitto/data
+      - ./bin/mosquitto:/mosquitto/config
+      - /etc/localtime:/etc/localtime:ro
+    expose:
+      - "1883" # exposed internally
+
+  # Grafana is a multi-platform open source analytics and interactive visualization web application. Internal
+  # configuration is set up to use PostgreSQL with an InfluxDB v2 Flux datasource pre-configured.
+  grafana:
+    image: "grafana/grafana:${TAG_GRAFANA:-main}"
+    container_name: grafana
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - influxdb
+    env_file:
+      - ./bin/grafana.env
+      - ./bin/influxdb.env
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./bin/grafana:/etc/grafana/provisioning
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000" # Grafana public HTTP port exposed on host network
+
+  # The influxdb integration makes it possible to transfer all state changes to an external InfluxDB 2.xx database.
+  influxdb:
+    image: "influxdb:${TAG_INFLUXDB:-latest}"
+    container_name: influxdb
+    restart: unless-stopped
+    env_file:
+      - ./bin/influxdb.env
+    volumes:
+      - influxdb_data:/var/lib/influxdb
+      - /etc/localtime:/etc/localtime:ro
+    expose:
+      - "8086" # exposed internally
+
+# Storage volumes. Relevant configurations are stored in the folder `configs/`
+volumes:
+  postgres_data:
+  mosquitto_data:
+  grafana_data:
+  influxdb_data:
+  zwavejs_data:

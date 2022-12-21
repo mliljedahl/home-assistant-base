@@ -1,0 +1,12 @@
+api_version: 2
+ssl: false
+verify_ssl: false
+
+host: influxdb
+port: 8086
+organization: home
+bucket: Home Assistant
+token: !secret influxdb_token
+
+max_retries: 3
+default_measurement: state
