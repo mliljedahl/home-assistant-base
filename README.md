@@ -1,17 +1,35 @@
 # home-assistant-base
 
-Sets up Home Assistant and multiple integrations using docker-compose.
+An simple and easy to start with set up of Home Assistant using docker-compose.
 
-# Sensitive data map
+Included components:
 
-Script for managing this is in the making.
+* Home Assistant
+* PostgreSQL
+* Grafana
+* InfluxDB
+* Z-Wave JS UI
+* telldus-core
+* Eclipse Mosquitto (MQTT)
+
+# Installation
+
+For now the [.env](#env) file needs to be manually edited and also the [install.py](#installpy) script needs to be run to generate all required passwords. The complete setup will be managed by [install.py](#installpy) in a future version.
+
+## .env
+
+The `.env` file holds all information about what version (tags) of the docker images to run, what ports they should run on and the **path** to *zigbee* and *zwave* devices (required to manually set).
 
 ```
-bin/grafana/datasources/influxdb.yml token (same as DOCKER_INFLUXDB_INIT_ADMIN_TOKEN and influxdb_token)
-bin/mosquitto/pwfile (user and pass is used in zwave-js integration)
-bin/grafana.env GF_DATABASE_PASSWORD (same as POSTGRES_GRAFANA_PASSWORD)
-bin/influxdb.env DOCKER_INFLUXDB_INIT_PASSWORD DOCKER_INFLUXDB_INIT_ADMIN_TOKEN (same as token and influxdb_token)
-bin/postgres.env POSTGRES_PASSWORD POSTGRES_GRAFANA_PASSWORD (same as GF_DATABASE_PASSWORD)
-bin/zwavejs.env SESSION_SECRET
-configs/home-assistant/secrets.yaml influxdb_token (same as DOCKER_INFLUXDB_INIT_ADMIN_TOKEN and token) recorder_db
+# Required settings (example)
+ZIGBEE_SERIAL_ID=/dev/serial/by-id/usb-dresden_elektronik_ingenieurtechnik_GmbH_ConBee_II_DE2193921-if00
+ZWAVE_SERIAL_ID=/dev/serial/by-id/usb-0658_0200-if00
+```
+
+## install.py
+
+This script generates and sets all passowrds required for the setup. Use the following to execute it:
+
+```
+$ python3 install.py
 ```
